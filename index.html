@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PEA Photo Renamer (Web OCR)</title>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<style>
+body{
+  font-family:Arial,sans-serif;
+  background:#0f172a;
+  color:#e5e7eb;
+  margin:0;
+  padding:20px;
+}
+.wrap{
+  max-width:1100px;
+  margin:auto;
+}
+h1{
+  font-size:28px;
+  margin-bottom:8px;
+}
+.desc{
+  color:#94a3b8;
+  margin-bottom:20px;
+}
+.drop{
+  border:2px dashed #334155;
+  border-radius:16px;
+  padding:40px;
+  text-align:center;
+  background:#111827;
+  cursor:pointer;
+  transition:.2s;
+}
+.drop:hover{
+  border-color:#38bdf8;
+}
+input[type=file]{
+  display:none;
+}
+.btn{
+  background:#0ea5e9;
+  border:none;
+  color:white;
+  padding:12px 18px;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:14px;
+}
+.btn:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+.actions{
+  display:flex;
+  gap:12px;
+  margin:20px 0;
+  flex-wrap:wrap;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+  overflow:hidden;
+}
+th,td{
+  border-bottom:1px solid #1e293b;
+  padding:12px;
+  text-align:left;
+  font-size:14px;
+}
+th{
+  background:#111827;
+}
+tr:hover{
+  background:#111827;
+}
+.ok{
+  color:#22c55e;
+  font-weight:bold;
+}
+.bad{
+  color:#f59e0b;
+  font-weight:bold;
+}
+.progress{
+  margin-top:20px;
+  background:#111827;
+  border-radius:10px;
+  overflow:hidden;
+}
+.bar{
+  height:12px;
+  background:#0ea5e9;
+  width:0%;
+  transition:.2s;
+}
+.small{
+  font-size:12px;
+  color:#94a3b8;
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>📸 PEA Photo Renamer (Web OCR)</h1>
+  <div class="desc">
+    ลากรูปมิเตอร์เข้ามา ระบบจะพยายามอ่านเลข PEA จากรูป แล้วเปลี่ยนชื่อไฟล์อัตโนมัติ
+  </div>
+
+  <label class="drop" for="files">
+    <div style="font-size:48px">📂</div>
+    <div style="font-size:18px;margin-top:10px">ลากรูปหรือกดเลือกไฟล์</div>
+    <div class="small">รองรับหลายรูปพร้อมกัน</div>
+  </label>
+
+  <input type="file" id="files" multiple accept="image/*">
+
+  <div class="actions">
+    <button class="btn" id="startBtn" disabled>เริ่มอ่าน OCR</button>
+    <button class="btn" id="zipBtn" disabled>ดาวน์โหลด ZIP</button>
+  </div>
+
+  <div class="progress">
+    <div class="bar" id="bar"></div>
+  </div>
+
+  <div id="status" class="small" style="margin-top:10px"></div>
+
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th>ไฟล์เดิม</th>
+        <th>เลข PEA</th>
+        <th>ชื่อใหม่</th>
+        <th>สถานะ</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+const input = document.getElementById('files');
+const startBtn = document.getElementById('startBtn');
+const zipBtn = document.getElementById('zipBtn');
+const tbody = document.querySelector('#tbl tbody');
+const statusEl = document.getElementById('status');
+const bar = document.getElementById('bar');
+
+let files = [];
+let results = [];
+
+input.addEventListener('change', e=>{
+  files = [...e.target.files];
+  startBtn.disabled = files.length === 0;
+  statusEl.textContent = `${files.length} รูป`;
+});
+
+function updateProgress(done,total){
+  const pct = total ? Math.round(done/total*100) : 0;
+  bar.style.width = pct + '%';
+  statusEl.textContent = `กำลังอ่าน ${done}/${total} (${pct}%)`;
+}
+
+function findPEA(text){
+  const compact = text.replace(/(?<=\d)\s+(?=\d)/g,'');
+  const matches = compact.match(/\b\d{8,12}\b/g);
+  if(!matches) return null;
+
+  const uniq = [...new Set(matches)];
+  uniq.sort((a,b)=>{
+    if(a.length===10 && b.length!==10) return -1;
+    if(b.length===10 && a.length!==10) return 1;
+    return b.length-a.length;
+  });
+
+  return uniq[0];
+}
+
+async function readImage(file){
+  const { data:{ text } } = await Tesseract.recognize(file,'eng',{
+    logger:m=>console.log(m)
+  });
+
+  const pea = findPEA(text);
+
+  return {
+    original:file.name,
+    pea:pea,
+    newName:pea ? `${pea}.${file.name.split('.').pop()}` : file.name,
+    status:pea ? 'OK' : 'NEED CHECK',
+    file:file
+  };
+}
+
+startBtn.addEventListener('click', async ()=>{
+  results = [];
+  tbody.innerHTML = '';
+  zipBtn.disabled = true;
+
+  for(let i=0;i<files.length;i++){
+    updateProgress(i,files.length);
+
+    try{
+      const r = await readImage(files[i]);
+      results.push(r);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.original}</td>
+        <td>${r.pea || '-'}</td>
+        <td>${r.newName}</td>
+        <td class="${r.pea ? 'ok':'bad'}">${r.status}</td>
+      `;
+      tbody.appendChild(tr);
+
+    }catch(err){
+      console.error(err);
+    }
+  }
+
+  updateProgress(files.length,files.length);
+  statusEl.textContent = `เสร็จแล้ว ${results.length} รูป`;
+  zipBtn.disabled = false;
+});
+
+zipBtn.addEventListener('click', async ()=>{
+  const zip = new JSZip();
+
+  for(const r of results){
+    zip.file(r.newName, r.file);
+  }
+
+  const blob = await zip.generateAsync({type:'blob'});
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pea-renamed-photos.zip';
+  a.click();
+});
+</script>
+
+</body>
+</html>
