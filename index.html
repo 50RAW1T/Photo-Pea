@@ -3,146 +3,62 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PEA Photo Renamer (Web OCR)</title>
+<title>PEA Photo Renamer · Barcode + OCR</title>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@latest"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
-body{
-  font-family:Arial,sans-serif;
-  background:#0f172a;
-  color:#e5e7eb;
-  margin:0;
-  padding:20px;
-}
-.wrap{
-  max-width:1100px;
-  margin:auto;
-}
-h1{
-  font-size:28px;
-  margin-bottom:8px;
-}
-.desc{
-  color:#94a3b8;
-  margin-bottom:20px;
-}
-.drop{
-  border:2px dashed #334155;
-  border-radius:16px;
-  padding:40px;
-  text-align:center;
-  background:#111827;
-  cursor:pointer;
-  transition:.2s;
-}
-.drop:hover{
-  border-color:#38bdf8;
-}
-input[type=file]{
-  display:none;
-}
-.btn{
-  background:#0ea5e9;
-  border:none;
-  color:white;
-  padding:12px 18px;
-  border-radius:10px;
-  cursor:pointer;
-  font-size:14px;
-}
-.btn:disabled{
-  opacity:.5;
-  cursor:not-allowed;
-}
-.actions{
-  display:flex;
-  gap:12px;
-  margin:20px 0;
-  flex-wrap:wrap;
-}
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:20px;
-  overflow:hidden;
-}
-th,td{
-  border-bottom:1px solid #1e293b;
-  padding:12px;
-  text-align:left;
-  font-size:14px;
-}
-th{
-  background:#111827;
-}
-tr:hover{
-  background:#111827;
-}
-.ok{
-  color:#22c55e;
-  font-weight:bold;
-}
-.bad{
-  color:#f59e0b;
-  font-weight:bold;
-}
-.progress{
-  margin-top:20px;
-  background:#111827;
-  border-radius:10px;
-  overflow:hidden;
-}
-.bar{
-  height:12px;
-  background:#0ea5e9;
-  width:0%;
-  transition:.2s;
-}
-.small{
-  font-size:12px;
-  color:#94a3b8;
-}
+body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:18px}
+.wrap{max-width:1100px;margin:auto}
+h1{font-size:24px;margin:0 0 8px}
+.desc{color:#94a3b8;line-height:1.6;margin-bottom:16px}
+.pick{display:block;background:#0ea5e9;color:#fff;text-align:center;border-radius:14px;padding:18px;font-weight:bold;font-size:17px}
+input{display:none}
+.actions{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap}
+button{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:12px 16px;font-size:14px}
+button:disabled{opacity:.45}
+.progress{background:#111827;border-radius:99px;overflow:hidden;margin:12px 0}
+.bar{height:12px;background:#22c55e;width:0%}
+.small{font-size:12px;color:#94a3b8}
+table{width:100%;border-collapse:collapse;margin-top:16px}
+th,td{border-bottom:1px solid #1e293b;padding:10px;font-size:13px;text-align:left;vertical-align:top}
+th{background:#111827}
+.ok{color:#22c55e;font-weight:bold}.warn{color:#f59e0b;font-weight:bold}.bad{color:#ef4444;font-weight:bold}
+.preview{width:72px;height:72px;object-fit:cover;border-radius:8px}
 </style>
 </head>
 <body>
-
 <div class="wrap">
-  <h1>📸 PEA Photo Renamer (Web OCR)</h1>
+  <h1>📸 PEA Photo Renamer</h1>
   <div class="desc">
-    ลากรูปมิเตอร์เข้ามา ระบบจะพยายามอ่านเลข PEA จากรูป แล้วเปลี่ยนชื่อไฟล์อัตโนมัติ
+    เวอร์ชันนี้จะอ่าน <b>Barcode ก่อน</b> แล้วอ่าน <b>OCR ตัวเลข</b> สำรอง ถ้าเลขตรงกันจะมั่นใจสูง ถ้าไม่ตรงจะขึ้นให้ตรวจเอง
   </div>
 
-  <label class="drop" for="files">
-    <div style="font-size:48px">📂</div>
-    <div style="font-size:18px;margin-top:10px">ลากรูปหรือกดเลือกไฟล์</div>
-    <div class="small">รองรับหลายรูปพร้อมกัน</div>
-  </label>
-
-  <input type="file" id="files" multiple accept="image/*">
+  <label class="pick" for="files">📷 เลือกรูปจาก iPad / Photos</label>
+  <input id="files" type="file" multiple accept="image/*">
 
   <div class="actions">
-    <button class="btn" id="startBtn" disabled>เริ่มอ่าน OCR</button>
-    <button class="btn" id="zipBtn" disabled>ดาวน์โหลด ZIP</button>
+    <button id="startBtn" disabled>เริ่มอ่าน Barcode + OCR</button>
+    <button id="zipBtn" disabled>ดาวน์โหลด ZIP</button>
   </div>
 
-  <div class="progress">
-    <div class="bar" id="bar"></div>
-  </div>
+  <div class="progress"><div class="bar" id="bar"></div></div>
+  <div class="small" id="status">ยังไม่ได้เลือกรูป</div>
 
-  <div id="status" class="small" style="margin-top:10px"></div>
-
-  <table id="tbl">
+  <table>
     <thead>
       <tr>
+        <th>รูป</th>
         <th>ไฟล์เดิม</th>
-        <th>เลข PEA</th>
+        <th>Barcode</th>
+        <th>OCR</th>
         <th>ชื่อใหม่</th>
         <th>สถานะ</th>
       </tr>
     </thead>
-    <tbody></tbody>
+    <tbody id="body"></tbody>
   </table>
 </div>
 
@@ -150,9 +66,9 @@ tr:hover{
 const input = document.getElementById('files');
 const startBtn = document.getElementById('startBtn');
 const zipBtn = document.getElementById('zipBtn');
-const tbody = document.querySelector('#tbl tbody');
-const statusEl = document.getElementById('status');
+const body = document.getElementById('body');
 const bar = document.getElementById('bar');
+const statusEl = document.getElementById('status');
 
 let files = [];
 let results = [];
@@ -160,92 +76,131 @@ let results = [];
 input.addEventListener('change', e=>{
   files = [...e.target.files];
   startBtn.disabled = files.length === 0;
-  statusEl.textContent = `${files.length} รูป`;
+  statusEl.textContent = files.length + ' รูป';
 });
 
-function updateProgress(done,total){
-  const pct = total ? Math.round(done/total*100) : 0;
+function progress(i,total){
+  const pct = total ? Math.round(i/total*100) : 0;
   bar.style.width = pct + '%';
-  statusEl.textContent = `กำลังอ่าน ${done}/${total} (${pct}%)`;
+  statusEl.textContent = `กำลังอ่าน ${i}/${total} (${pct}%)`;
 }
 
-function findPEA(text){
-  const compact = text.replace(/(?<=\d)\s+(?=\d)/g,'');
-  const matches = compact.match(/\b\d{8,12}\b/g);
-  if(!matches) return null;
-
-  const uniq = [...new Set(matches)];
+function findNumber(text){
+  const compact = String(text||'').replace(/(?<=\d)\s+(?=\d)/g,'');
+  const nums = compact.match(/\b\d{8,12}\b/g);
+  if(!nums) return '';
+  const uniq = [...new Set(nums)];
   uniq.sort((a,b)=>{
     if(a.length===10 && b.length!==10) return -1;
     if(b.length===10 && a.length!==10) return 1;
     return b.length-a.length;
   });
-
-  return uniq[0];
+  return uniq[0] || '';
 }
 
-async function readImage(file){
-  const { data:{ text } } = await Tesseract.recognize(file,'eng',{
-    logger:m=>console.log(m)
-  });
+async function readBarcode(file){
+  try{
+    const reader = new ZXingBrowser.BrowserMultiFormatReader();
+    const imgUrl = URL.createObjectURL(file);
+    const result = await reader.decodeFromImageUrl(imgUrl);
+    URL.revokeObjectURL(imgUrl);
+    return findNumber(result.getText());
+  }catch(e){
+    return '';
+  }
+}
 
-  const pea = findPEA(text);
+async function readOCR(file){
+  try{
+    const {data:{text}} = await Tesseract.recognize(file,'eng',{
+      tessedit_char_whitelist:'0123456789PEApea'
+    });
+    return findNumber(text);
+  }catch(e){
+    return '';
+  }
+}
+
+function decideName(barcode, ocr, file){
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if(barcode && ocr && barcode === ocr){
+    return {pea:barcode, name:`${barcode}.${ext}`, status:'OK ตรงกัน', cls:'ok'};
+  }
+
+  if(barcode && !ocr){
+    return {pea:barcode, name:`${barcode}.${ext}`, status:'ใช้ Barcode', cls:'ok'};
+  }
+
+  if(barcode && ocr && barcode !== ocr){
+    return {pea:barcode, name:`CHECK-${barcode}-${ocr}.${ext}`, status:'เลขไม่ตรง ตรวจเอง', cls:'warn'};
+  }
+
+  if(!barcode && ocr){
+    return {pea:ocr, name:`OCR-${ocr}.${ext}`, status:'ใช้ OCR อย่างเดียว', cls:'warn'};
+  }
+
+  return {pea:'', name:`NEED-CHECK-${file.name}`, status:'อ่านไม่ได้', cls:'bad'};
+}
+
+async function processFile(file){
+  const preview = URL.createObjectURL(file);
+
+  const barcode = await readBarcode(file);
+  const ocr = await readOCR(file);
+  const final = decideName(barcode, ocr, file);
 
   return {
+    file, preview,
     original:file.name,
-    pea:pea,
-    newName:pea ? `${pea}.${file.name.split('.').pop()}` : file.name,
-    status:pea ? 'OK' : 'NEED CHECK',
-    file:file
+    barcode, ocr,
+    newName:final.name,
+    status:final.status,
+    cls:final.cls
   };
+}
+
+function addRow(r){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><img class="preview" src="${r.preview}"></td>
+    <td>${r.original}</td>
+    <td>${r.barcode || '-'}</td>
+    <td>${r.ocr || '-'}</td>
+    <td>${r.newName}</td>
+    <td class="${r.cls}">${r.status}</td>
+  `;
+  body.appendChild(tr);
 }
 
 startBtn.addEventListener('click', async ()=>{
   results = [];
-  tbody.innerHTML = '';
+  body.innerHTML = '';
   zipBtn.disabled = true;
 
   for(let i=0;i<files.length;i++){
-    updateProgress(i,files.length);
-
-    try{
-      const r = await readImage(files[i]);
-      results.push(r);
-
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.original}</td>
-        <td>${r.pea || '-'}</td>
-        <td>${r.newName}</td>
-        <td class="${r.pea ? 'ok':'bad'}">${r.status}</td>
-      `;
-      tbody.appendChild(tr);
-
-    }catch(err){
-      console.error(err);
-    }
+    progress(i, files.length);
+    const r = await processFile(files[i]);
+    results.push(r);
+    addRow(r);
   }
 
-  updateProgress(files.length,files.length);
-  statusEl.textContent = `เสร็จแล้ว ${results.length} รูป`;
+  progress(files.length, files.length);
+  statusEl.textContent = 'เสร็จแล้ว ' + results.length + ' รูป';
   zipBtn.disabled = false;
 });
 
 zipBtn.addEventListener('click', async ()=>{
   const zip = new JSZip();
-
   for(const r of results){
     zip.file(r.newName, r.file);
   }
-
   const blob = await zip.generateAsync({type:'blob'});
-
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'pea-renamed-photos.zip';
+  a.download = 'pea-renamed-barcode-ocr.zip';
   a.click();
 });
 </script>
-
 </body>
 </html>
