@@ -3,202 +3,346 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PEA Photo Renamer · Barcode + OCR</title>
+<title>PEA Photo Renamer · Safe Review</title>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@latest"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
-body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:18px}
-.wrap{max-width:1100px;margin:auto}
+:root{--bg:#0f172a;--card:#111827;--line:#1e293b;--t:#e5e7eb;--muted:#94a3b8;--blue:#0ea5e9;--green:#22c55e;--amber:#f59e0b;--red:#ef4444}
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:var(--bg);color:var(--t);margin:0;padding:16px}
+.wrap{max-width:1180px;margin:auto}
 h1{font-size:24px;margin:0 0 8px}
-.desc{color:#94a3b8;line-height:1.6;margin-bottom:16px}
-.pick{display:block;background:#0ea5e9;color:#fff;text-align:center;border-radius:14px;padding:18px;font-weight:bold;font-size:17px}
-input{display:none}
-.actions{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap}
+.desc{color:var(--muted);line-height:1.65;margin-bottom:16px}
+.pick{display:block;background:var(--blue);color:#fff;text-align:center;border-radius:14px;padding:18px;font-weight:bold;font-size:17px;margin-bottom:12px}
+input[type=file]{display:none}
+.actions{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap}
 button{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:12px 16px;font-size:14px}
 button:disabled{opacity:.45}
-.progress{background:#111827;border-radius:99px;overflow:hidden;margin:12px 0}
-.bar{height:12px;background:#22c55e;width:0%}
-.small{font-size:12px;color:#94a3b8}
-table{width:100%;border-collapse:collapse;margin-top:16px}
-th,td{border-bottom:1px solid #1e293b;padding:10px;font-size:13px;text-align:left;vertical-align:top}
-th{background:#111827}
-.ok{color:#22c55e;font-weight:bold}.warn{color:#f59e0b;font-weight:bold}.bad{color:#ef4444;font-weight:bold}
-.preview{width:72px;height:72px;object-fit:cover;border-radius:8px}
+.progress{background:var(--card);border-radius:99px;overflow:hidden;margin:12px 0}
+.bar{height:12px;background:var(--green);width:0%}
+.small{font-size:12px;color:var(--muted);line-height:1.6}
+.note{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);color:#fbbf24;border-radius:12px;padding:12px;margin:12px 0;font-size:13px;line-height:1.7}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.preview{width:100%;height:220px;object-fit:cover;background:#000}
+.card-body{padding:12px}
+.row{display:grid;grid-template-columns:88px 1fr;gap:8px;margin:7px 0;font-size:13px}
+.label{color:var(--muted)}
+.value{word-break:break-all}
+.final-input{width:100%;background:#0b1220;border:1px solid #334155;color:#fff;border-radius:10px;padding:10px;font-size:16px;margin-top:8px}
+.ok{color:var(--green);font-weight:bold}.warn{color:var(--amber);font-weight:bold}.bad{color:var(--red);font-weight:bold}
+.tag{display:inline-block;border-radius:99px;padding:3px 8px;font-size:12px}
+.tag.ok{background:rgba(34,197,94,.12)}.tag.warn{background:rgba(245,158,11,.12)}.tag.bad{background:rgba(239,68,68,.12)}
+.candidates{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.candidate{background:#0b1220;border:1px solid #334155;color:#cbd5e1;border-radius:99px;padding:5px 8px;font-size:12px}
+.candidate:active{background:#1e293b}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>📸 PEA Photo Renamer</h1>
+  <h1>📸 PEA Photo Renamer · Safe Review</h1>
   <div class="desc">
-    เวอร์ชันนี้จะอ่าน <b>Barcode ก่อน</b> แล้วอ่าน <b>OCR ตัวเลข</b> สำรอง ถ้าเลขตรงกันจะมั่นใจสูง ถ้าไม่ตรงจะขึ้นให้ตรวจเอง
+    เวอร์ชันนี้จะอ่าน <b>Barcode + OCR</b> แต่จะไม่เปลี่ยนชื่อแบบเสี่ยงผิดทันที ถ้าเลขไม่ตรงกันหรืออ่านได้แค่ OCR จะให้ตรวจ/แก้เลขก่อนดาวน์โหลด ZIP
   </div>
 
   <label class="pick" for="files">📷 เลือกรูปจาก iPad / Photos</label>
   <input id="files" type="file" multiple accept="image/*">
 
+  <div class="note">
+    กติกาปลอดภัย: <b>Barcode ตรงกับ OCR = ผ่าน</b> · Barcode อ่านได้ = ใช้ Barcode · OCR อย่างเดียว = ต้องตรวจ · Barcode/OCR ไม่ตรง = ต้องตรวจ
+  </div>
+
   <div class="actions">
-    <button id="startBtn" disabled>เริ่มอ่าน Barcode + OCR</button>
+    <button id="startBtn" disabled>เริ่มอ่าน</button>
     <button id="zipBtn" disabled>ดาวน์โหลด ZIP</button>
   </div>
 
   <div class="progress"><div class="bar" id="bar"></div></div>
   <div class="small" id="status">ยังไม่ได้เลือกรูป</div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>รูป</th>
-        <th>ไฟล์เดิม</th>
-        <th>Barcode</th>
-        <th>OCR</th>
-        <th>ชื่อใหม่</th>
-        <th>สถานะ</th>
-      </tr>
-    </thead>
-    <tbody id="body"></tbody>
-  </table>
+  <div class="grid" id="cards"></div>
 </div>
 
 <script>
-const input = document.getElementById('files');
-const startBtn = document.getElementById('startBtn');
-const zipBtn = document.getElementById('zipBtn');
-const body = document.getElementById('body');
-const bar = document.getElementById('bar');
-const statusEl = document.getElementById('status');
+const input=document.getElementById('files');
+const startBtn=document.getElementById('startBtn');
+const zipBtn=document.getElementById('zipBtn');
+const cards=document.getElementById('cards');
+const bar=document.getElementById('bar');
+const statusEl=document.getElementById('status');
 
-let files = [];
-let results = [];
+let files=[];
+let results=[];
 
-input.addEventListener('change', e=>{
-  files = [...e.target.files];
-  startBtn.disabled = files.length === 0;
-  statusEl.textContent = files.length + ' รูป';
+input.addEventListener('change',e=>{
+  files=[...e.target.files];
+  startBtn.disabled=files.length===0;
+  statusEl.textContent=files.length+' รูป';
 });
 
 function progress(i,total){
-  const pct = total ? Math.round(i/total*100) : 0;
-  bar.style.width = pct + '%';
-  statusEl.textContent = `กำลังอ่าน ${i}/${total} (${pct}%)`;
+  const pct=total?Math.round(i/total*100):0;
+  bar.style.width=pct+'%';
+  statusEl.textContent=`กำลังอ่าน ${i}/${total} (${pct}%)`;
 }
 
-function findNumber(text){
-  const compact = String(text||'').replace(/(?<=\d)\s+(?=\d)/g,'');
-  const nums = compact.match(/\b\d{8,12}\b/g);
-  if(!nums) return '';
-  const uniq = [...new Set(nums)];
+function numberCandidates(text){
+  const compact=String(text||'').replace(/(?<=\d)\s+(?=\d)/g,'');
+  const nums=compact.match(/\b\d{8,12}\b/g)||[];
+  const uniq=[...new Set(nums)];
   uniq.sort((a,b)=>{
-    if(a.length===10 && b.length!==10) return -1;
-    if(b.length===10 && a.length!==10) return 1;
+    if(a.length===10&&b.length!==10)return -1;
+    if(b.length===10&&a.length!==10)return 1;
     return b.length-a.length;
   });
-  return uniq[0] || '';
+  return uniq;
 }
 
-async function readBarcode(file){
+function bestNumber(text){
+  return numberCandidates(text)[0]||'';
+}
+
+function cleanFinal(v){
+  return String(v||'').replace(/\D/g,'').slice(0,12);
+}
+
+function extOf(file){
+  const e=(file.name.split('.').pop()||'jpg').toLowerCase();
+  return ['jpg','jpeg','png','webp'].includes(e)?e:'jpg';
+}
+
+function makeImage(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=reject;
+    img.src=URL.createObjectURL(file);
+  });
+}
+
+function canvasFromImage(img, crop, rotateDeg=0, maxSide=1600){
+  const sx=crop.x*img.naturalWidth, sy=crop.y*img.naturalHeight;
+  const sw=crop.w*img.naturalWidth, sh=crop.h*img.naturalHeight;
+
+  let scale=Math.min(1, maxSide/Math.max(sw,sh));
+  let cw=Math.round(sw*scale), ch=Math.round(sh*scale);
+
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+
+  if(rotateDeg===90||rotateDeg===270){
+    canvas.width=ch; canvas.height=cw;
+  }else{
+    canvas.width=cw; canvas.height=ch;
+  }
+
+  ctx.save();
+  if(rotateDeg===90){ctx.translate(canvas.width,0);ctx.rotate(Math.PI/2);}
+  if(rotateDeg===180){ctx.translate(canvas.width,canvas.height);ctx.rotate(Math.PI);}
+  if(rotateDeg===270){ctx.translate(0,canvas.height);ctx.rotate(-Math.PI/2);}
+  ctx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
+  ctx.restore();
+
+  return canvas;
+}
+
+async function tryBarcodeFromCanvas(canvas){
   try{
-    const reader = new ZXingBrowser.BrowserMultiFormatReader();
-    const imgUrl = URL.createObjectURL(file);
-    const result = await reader.decodeFromImageUrl(imgUrl);
-    URL.revokeObjectURL(imgUrl);
-    return findNumber(result.getText());
-  }catch(e){
-    return '';
-  }
-}
-
-async function readOCR(file){
+    const reader=new ZXingBrowser.BrowserMultiFormatReader();
+    if(reader.decodeFromCanvas){
+      const res=await reader.decodeFromCanvas(canvas);
+      return bestNumber(res.getText());
+    }
+  }catch(e){}
   try{
-    const {data:{text}} = await Tesseract.recognize(file,'eng',{
-      tessedit_char_whitelist:'0123456789PEApea'
-    });
-    return findNumber(text);
-  }catch(e){
-    return '';
-  }
+    const url=canvas.toDataURL('image/png');
+    const reader=new ZXingBrowser.BrowserMultiFormatReader();
+    const res=await reader.decodeFromImageUrl(url);
+    return bestNumber(res.getText());
+  }catch(e){}
+  return '';
 }
 
-function decideName(barcode, ocr, file){
-  const ext = file.name.split('.').pop().toLowerCase();
+async function readBarcodeSmart(file){
+  const img=await makeImage(file);
+  const crops=[
+    {x:0,y:0,w:1,h:1},
+    {x:.05,y:.05,w:.9,h:.9},
+    {x:0,y:.35,w:1,h:.65},
+    {x:0,y:0,w:1,h:.55},
+    {x:.35,y:0,w:.65,h:1},
+    {x:0,y:0,w:.65,h:1},
+    {x:.2,y:.2,w:.6,h:.6}
+  ];
+  const rotations=[0,90,180,270];
 
-  if(barcode && ocr && barcode === ocr){
-    return {pea:barcode, name:`${barcode}.${ext}`, status:'OK ตรงกัน', cls:'ok'};
+  for(const crop of crops){
+    for(const rot of rotations){
+      const c=canvasFromImage(img,crop,rot,1800);
+      const n=await tryBarcodeFromCanvas(c);
+      if(n) return n;
+    }
+  }
+  return '';
+}
+
+async function readOCRSmart(file){
+  const img=await makeImage(file);
+  const crops=[
+    {x:0,y:0,w:1,h:1},
+    {x:0,y:0,w:1,h:.45},
+    {x:0,y:.35,w:1,h:.35},
+    {x:0,y:.55,w:1,h:.45},
+    {x:.05,y:.05,w:.9,h:.9}
+  ];
+  const rotations=[0,90,270];
+  let all=[];
+
+  for(const crop of crops){
+    for(const rot of rotations){
+      try{
+        const canvas=canvasFromImage(img,crop,rot,1800);
+        const {data:{text}}=await Tesseract.recognize(canvas,'eng',{
+          tessedit_char_whitelist:'0123456789PEApea'
+        });
+        all.push(...numberCandidates(text));
+      }catch(e){}
+    }
   }
 
+  const counts={};
+  all.forEach(n=>counts[n]=(counts[n]||0)+1);
+  const sorted=Object.keys(counts).sort((a,b)=>{
+    if(counts[b]!==counts[a]) return counts[b]-counts[a];
+    if(a.length===10&&b.length!==10)return -1;
+    if(b.length===10&&a.length!==10)return 1;
+    return b.length-a.length;
+  });
+
+  return {best:sorted[0]||'', candidates:sorted.slice(0,6)};
+}
+
+function decide(barcode, ocr, candidates){
+  if(barcode && ocr && barcode===ocr){
+    return {final:barcode,status:'OK ตรงกัน',cls:'ok'};
+  }
   if(barcode && !ocr){
-    return {pea:barcode, name:`${barcode}.${ext}`, status:'ใช้ Barcode', cls:'ok'};
+    return {final:barcode,status:'ใช้ Barcode',cls:'ok'};
   }
-
-  if(barcode && ocr && barcode !== ocr){
-    return {pea:barcode, name:`CHECK-${barcode}-${ocr}.${ext}`, status:'เลขไม่ตรง ตรวจเอง', cls:'warn'};
+  if(barcode && ocr && barcode!==ocr){
+    return {final:barcode,status:'เลขไม่ตรง ตรวจเอง',cls:'warn'};
   }
-
   if(!barcode && ocr){
-    return {pea:ocr, name:`OCR-${ocr}.${ext}`, status:'ใช้ OCR อย่างเดียว', cls:'warn'};
+    return {final:ocr,status:'OCR อย่างเดียว ตรวจเอง',cls:'warn'};
   }
-
-  return {pea:'', name:`NEED-CHECK-${file.name}`, status:'อ่านไม่ได้', cls:'bad'};
+  return {final:'',status:'อ่านไม่ได้',cls:'bad'};
 }
 
-async function processFile(file){
-  const preview = URL.createObjectURL(file);
-
-  const barcode = await readBarcode(file);
-  const ocr = await readOCR(file);
-  const final = decideName(barcode, ocr, file);
+async function processFile(file,idx){
+  const preview=URL.createObjectURL(file);
+  const barcode=await readBarcodeSmart(file);
+  const ocrData=await readOCRSmart(file);
+  const ocr=ocrData.best;
+  const decision=decide(barcode,ocr,ocrData.candidates);
 
   return {
-    file, preview,
-    original:file.name,
-    barcode, ocr,
-    newName:final.name,
-    status:final.status,
-    cls:final.cls
+    idx,file,preview,original:file.name,
+    barcode,ocr,candidates:ocrData.candidates,
+    final:decision.final,status:decision.status,cls:decision.cls
   };
 }
 
-function addRow(r){
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><img class="preview" src="${r.preview}"></td>
-    <td>${r.original}</td>
-    <td>${r.barcode || '-'}</td>
-    <td>${r.ocr || '-'}</td>
-    <td>${r.newName}</td>
-    <td class="${r.cls}">${r.status}</td>
+function renderCard(r){
+  const div=document.createElement('div');
+  div.className='card';
+  div.dataset.idx=r.idx;
+  div.innerHTML=`
+    <img class="preview" src="${r.preview}">
+    <div class="card-body">
+      <div class="row"><div class="label">ไฟล์เดิม</div><div class="value">${r.original}</div></div>
+      <div class="row"><div class="label">Barcode</div><div class="value">${r.barcode||'-'}</div></div>
+      <div class="row"><div class="label">OCR</div><div class="value">${r.ocr||'-'}</div></div>
+      <div class="row"><div class="label">สถานะ</div><div class="value"><span class="tag ${r.cls}">${r.status}</span></div></div>
+      <div class="small">กดเลขด้านล่างเพื่อเลือก หรือแก้เลขเองก่อนดาวน์โหลด</div>
+      <div class="candidates">
+        ${[r.barcode,r.ocr,...r.candidates].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).map(n=>`<button class="candidate" type="button" onclick="setFinal(${r.idx},'${n}')">${n}</button>`).join('')}
+      </div>
+      <input class="final-input" id="final-${r.idx}" value="${r.final||''}" placeholder="ใส่เลข PEA ที่ถูกต้อง">
+      <div class="small" style="margin-top:6px">ชื่อไฟล์ใหม่: <span id="name-${r.idx}">${fileNameFor(r)}</span></div>
+    </div>
   `;
-  body.appendChild(tr);
+  cards.appendChild(div);
 }
 
-startBtn.addEventListener('click', async ()=>{
-  results = [];
-  body.innerHTML = '';
-  zipBtn.disabled = true;
+function setFinal(idx,n){
+  const inp=document.getElementById('final-'+idx);
+  if(inp){inp.value=n; updateName(idx);}
+}
 
-  for(let i=0;i<files.length;i++){
-    progress(i, files.length);
-    const r = await processFile(files[i]);
-    results.push(r);
-    addRow(r);
+function fileNameFor(r){
+  const n=cleanFinal(r.final);
+  if(!n) return 'NEED-CHECK-'+r.original;
+  if(r.cls==='warn') return 'CHECK-'+n+'.'+extOf(r.file);
+  return n+'.'+extOf(r.file);
+}
+
+function updateName(idx){
+  const r=results.find(x=>x.idx===idx);
+  if(!r)return;
+  const inp=document.getElementById('final-'+idx);
+  r.final=cleanFinal(inp&&inp.value);
+  const span=document.getElementById('name-'+idx);
+  if(span)span.textContent=fileNameFor(r);
+}
+
+document.addEventListener('input',e=>{
+  if(e.target.classList.contains('final-input')){
+    const idx=parseInt(e.target.id.replace('final-',''),10);
+    updateName(idx);
   }
-
-  progress(files.length, files.length);
-  statusEl.textContent = 'เสร็จแล้ว ' + results.length + ' รูป';
-  zipBtn.disabled = false;
 });
 
-zipBtn.addEventListener('click', async ()=>{
-  const zip = new JSZip();
-  for(const r of results){
-    zip.file(r.newName, r.file);
+startBtn.addEventListener('click',async()=>{
+  results=[]; cards.innerHTML=''; zipBtn.disabled=true;
+  for(let i=0;i<files.length;i++){
+    progress(i,files.length);
+    const r=await processFile(files[i],i);
+    results.push(r);
+    renderCard(r);
   }
-  const blob = await zip.generateAsync({type:'blob'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'pea-renamed-barcode-ocr.zip';
+  progress(files.length,files.length);
+  statusEl.textContent='เสร็จแล้ว '+results.length+' รูป';
+  zipBtn.disabled=false;
+});
+
+zipBtn.addEventListener('click',async()=>{
+  const zip=new JSZip();
+
+  for(const r of results){
+    const inp=document.getElementById('final-'+r.idx);
+    r.final=cleanFinal(inp&&inp.value);
+    let name=fileNameFor(r);
+
+    // กันชื่อซ้ำ
+    let base=name.replace(/\.[^.]+$/,'');
+    let ext=name.split('.').pop();
+    let finalName=name;
+    let count=2;
+    while(zip.files[finalName]){
+      finalName=base+'-'+count+'.'+ext;
+      count++;
+    }
+
+    zip.file(finalName,r.file);
+  }
+
+  const blob=await zip.generateAsync({type:'blob'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='pea-renamed-safe-review.zip';
   a.click();
 });
 </script>
